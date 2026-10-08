@@ -12,6 +12,7 @@ import type { build } from 'vite';
 
 import { AUTH_GUIDANCE } from '../auth';
 import type { DoAuthenticatedRequest } from '../auth';
+import type { BackendRuntimeStatus } from '../backend-runtime';
 import { encodeQueryName } from '../backend/encodeQueryName';
 import type { ExecuteActionRequest, ExecuteActionResponse } from '../backend/protocol';
 import type { BackendFunction, BackendOutputs } from '../backend/types';
@@ -114,6 +115,7 @@ async function bundleBackendFunction(
     func: BackendFunction,
     projectRoot: string,
     log: Logger,
+    runtime: BackendRuntimeStatus,
 ): Promise<BundleResult> {
     const displayName = formatRef(func);
     const virtualId = `${DEV_VIRTUAL_PREFIX}${displayName}`;
@@ -133,6 +135,7 @@ async function bundleBackendFunction(
         projectRoot,
         log,
         connectionIdCollector.getModuleRecords,
+        runtime,
     );
     const baseConfig = getBaseBackendBuildConfig(projectRoot, { [virtualId]: virtualContent }, [
         connectionIdCollector.plugin,
@@ -615,7 +618,7 @@ async function handleExecuteAction(
     }
 }
 
-/** Handle POST /__dd/executeActionViaCloud: bundle and execute via the production round trip (queue + Deno subprocess). */
+/** Handle POST /__dd/executeActionViaCloud: bundle and execute via the production round trip (queue + the org's backend runtime). */
 async function handleExecuteActionViaCloud(
     req: IncomingMessage,
     res: ServerResponse,
@@ -697,9 +700,12 @@ export function createDevServerMiddleware(
     projectRoot: string,
     log: Logger,
     mode: string,
+    getBackendRuntime: () => Promise<BackendRuntimeStatus>,
 ): (req: IncomingMessage, res: ServerResponse, next: () => void) => void {
-    const bundle = (func: BackendFunction) =>
-        bundleBackendFunction(viteBuild, func, projectRoot, log);
+    const bundle = async (func: BackendFunction) => {
+        const runtime = await getBackendRuntime();
+        return bundleBackendFunction(viteBuild, func, projectRoot, log, runtime);
+    };
     const isDevVerifyMode = mode === DEV_VERIFY_MODE;
 
     const initialFunctions = getBackendFunctions();
