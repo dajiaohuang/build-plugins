@@ -23,7 +23,12 @@ import type { LongPollingOptions } from '../types';
 import { createBackendConnectionIdCollector } from './backend-connection-id-collector';
 import { createBackendStaticChecksPlugin } from './backend-static-checks-plugin';
 import { getBaseBackendBuildConfig } from './build-config';
-import type { ExecuteAction, GetRuntimeContext, LoadModule } from './local-execution';
+import type {
+    ExecuteAction,
+    GetAllowedConnectionIds,
+    GetRuntimeContext,
+    LoadModule,
+} from './local-execution';
 import { DEFAULT_TIMEOUT_MS, executeColdActionLocally } from './local-execution';
 import { getMaxRetryDelayMs } from './retry-delay';
 
@@ -575,9 +580,10 @@ async function handleExecuteAction(
     doAuthenticatedRequest: DoAuthenticatedRequest,
     longPolling: LongPollingConfig,
     loadModule: LoadModule,
-    getAllowedConnectionIds: (entryId: string) => Promise<string[]>,
+    getAllowedConnectionIds: GetAllowedConnectionIds,
     projectRoot: string,
     log: Logger,
+    getBackendRuntime: () => Promise<BackendRuntimeStatus>,
 ): Promise<void> {
     try {
         const { func, args } = await parseAndLookupFunction(req, functionsByName);
@@ -610,6 +616,7 @@ async function handleExecuteAction(
             log,
             DEFAULT_TIMEOUT_MS,
             longPolling,
+            getBackendRuntime,
         );
 
         sendSuccess(res, result);
@@ -693,7 +700,7 @@ export function createDevServerMiddleware(
     viteBuild: typeof build,
     loadModule: LoadModule,
     getBackendFunctions: () => BackendFunction[],
-    getAllowedConnectionIds: (entryId: string) => Promise<string[]>,
+    getAllowedConnectionIds: GetAllowedConnectionIds,
     auth: AuthConfig,
     doAuthenticatedRequest: DoAuthenticatedRequest | undefined,
     longPolling: LongPollingConfig,
@@ -755,6 +762,7 @@ export function createDevServerMiddleware(
                     getAllowedConnectionIds,
                     projectRoot,
                     log,
+                    getBackendRuntime,
                 ),
             );
         } else {
