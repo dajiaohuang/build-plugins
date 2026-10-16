@@ -52,7 +52,9 @@ you to start it with `datadog-apps dev`.
 
 The plugin applies the rules of the backend runtime your org's backend functions run on in Datadog: the Node backend runtime (v2) or the Deno backend runtime (v1). It looks the org's runtime up once per process for each set of credentials: the API keys every Datadog build plugin uses (`DD_API_KEY`/`DD_APP_KEY`, else the `auth.apiKey`/`auth.appKey` options), else the OAuth token above. Without credentials it assumes v1. When the lookup fails, it warns, applies the stricter v1 checks, and tries again the next time the runtime is needed, a minute later at the earliest. Meanwhile, a rejection v2 wouldn't make says the org's runtime couldn't be determined.
 
-Under v2 (Node), backend functions may import Node built-ins and use Node's network globals such as `fetch` and `WebSocket`, but not `XMLHttpRequest`, `EventSource` or `Deno`, which Node doesn't expose by default. The `crypto`/`Intl` warning is skipped. Cloud execution and its bundles (`dev:verify`, `/__dd/executeActionViaCloud`, `/__dd/debugBundle`) follow the same runtime.
+Under v2 (Node), backend functions may import Node built-ins and use Node's network globals such as `fetch` and `WebSocket`, but not `XMLHttpRequest`, `EventSource` or `Deno`, which Node doesn't expose by default. The `crypto`/`Intl` warning is skipped.
+
+Cloud execution (`dev:verify`, `/__dd/executeActionViaCloud`) submits `jsFunctionWithActions`, which runs on the org's runtime, and `/__dd/debugBundle` returns a bundle built with that runtime's checks. Cloud execution sends the script inline, so a bundle longer than the action's `script` limit fails with a 413 before it is sent. The plugin reads that limit from Datadog's action manifest. When a read lacks the `jsFunctionWithActions` limit, it warns and reads again later, waiting longer each time, up to three reads per site in a process; without the limit, Datadog's own error applies.
 
 ## Package output
 
